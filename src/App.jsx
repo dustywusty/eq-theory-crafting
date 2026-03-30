@@ -261,7 +261,7 @@ export default function EQMulticlassGuide() {
                 <div style={{ display: "flex", gap: 3, marginTop: 4, flexWrap: "wrap" }}>{c.classes.map(cl => <ClassBadge key={cl} id={cl} small />)}</div>
                 <p style={{ fontSize: 14, color: "#7a7568", margin: "4px 0 0", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.summary}</p>
               </div>
-              <span style={{ color: "#7a756844", fontSize: 18, flexShrink: 0 }}>\u2192</span>
+              <span style={{ color: "#7a756844", fontSize: 18, flexShrink: 0 }}></span>
             </div>
           ))}
         </div>
