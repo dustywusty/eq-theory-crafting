@@ -295,7 +295,7 @@ export default function EQMulticlassGuide() {
             {sel.classes.map(cl => { const c = CLASSES[cl]; return (
               <div key={cl} style={{ padding: 12, background: c.color+"08", borderRadius: 8, marginBottom: 5, borderLeft: "3px solid "+c.color+"44" }}>
                 <div style={{ fontSize: 16, fontWeight: 600, color: c.color, marginBottom: 2 }}>{c.name}</div>
-                <div style={{ fontSize: 13, color: "#7a7568", marginBottom: 4 }}>{c.arch} \u00b7 {c.armor} \u00b7 {c.mana ? c.mana+" caster" : "No mana"}</div>
+                <div style={{ fontSize: 13, color: "#7a7568", marginBottom: 4 }}>{c.arch}  {c.armor}  {c.mana ? c.mana+" caster" : "No mana"}</div>
                 <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginBottom: 4 }}>{c.abilities.map(a => (<span key={a} style={{ fontSize: 12, padding: "2px 6px", background: "#ffffff08", borderRadius: 3, color: "#a09a8a" }}>{a}</span>))}</div>
                 <div style={{ fontSize: 14, color: "#9a9484", lineHeight: 1.5 }}>{c.strengths}</div>
               </div>
@@ -313,7 +313,7 @@ export default function EQMulticlassGuide() {
                 <div key={id} onClick={() => setSelClass(id)} style={{ padding: "10px 14px", marginBottom: 3, borderRadius: 8, background: "#ffffff04", border: "1px solid #ffffff06", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}
                   onMouseEnter={e => e.currentTarget.style.background=c.color+"0a"} onMouseLeave={e => e.currentTarget.style.background="#ffffff04"}>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: c.color, flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}><span style={{ fontSize: 16, color: "#d4cfbf" }}>{c.name}</span><span style={{ fontSize: 13, color: "#7a7568", marginLeft: 8 }}>{c.armor} \u00b7 {c.mana||"No mana"}</span></div>
+                  <div style={{ flex: 1 }}><span style={{ fontSize: 16, color: "#d4cfbf" }}>{c.name}</span><span style={{ fontSize: 13, color: "#7a7568", marginLeft: 8 }}>{c.armor}  {c.mana||"No mana"}</span></div>
                   <span style={{ fontSize: 12, color: "#7a7568" }}>In {COMBOS.filter(co => co.classes.includes(id)).length} builds</span>
                 </div>
               ))}
@@ -328,7 +328,7 @@ export default function EQMulticlassGuide() {
           {(() => { const c = CLASSES[selClass]; return (
             <div style={{ padding: 20, background: "#ffffff04", border: "1px solid "+c.color+"22", borderRadius: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}><div style={{ width: 12, height: 12, borderRadius: "50%", background: c.color }} /><h2 style={{ margin: 0, fontSize: 24, color: c.color, fontWeight: 400 }}>{c.name}</h2></div>
-              <div style={{ fontSize: 14, color: "#7a7568", marginBottom: 12 }}>{c.arch} \u00b7 {c.armor} Armor \u00b7 {c.mana ? c.mana+"-based mana" : "No mana pool"}</div>
+              <div style={{ fontSize: 14, color: "#7a7568", marginBottom: 12 }}>{c.arch}  {c.armor} Armor  {c.mana ? c.mana+"-based mana" : "No mana pool"}</div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 12 }}>{c.abilities.map(a => (<span key={a} style={{ fontSize: 13, padding: "4px 10px", background: c.color+"15", border: "1px solid "+c.color+"22", borderRadius: 4, color: c.color }}>{a}</span>))}</div>
               <div style={{ padding: 12, background: "#ffffff04", borderRadius: 8, marginBottom: 8 }}><div style={{ fontSize: 13, color: "#c6a44e", letterSpacing: 1, textTransform: "uppercase", marginBottom: 3 }}>Strengths</div><p style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: "#b0aa98" }}>{c.strengths}</p></div>
               <div style={{ padding: 12, background: "#8a5a5a08", borderRadius: 8, marginBottom: 14 }}><div style={{ fontSize: 13, color: "#8a5a5a", letterSpacing: 1, textTransform: "uppercase", marginBottom: 3 }}>Weakness</div><p style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: "#8a7a6a" }}>{c.weakness}</p></div>
@@ -373,7 +373,7 @@ export default function EQMulticlassGuide() {
 
       <div style={{ textAlign: "center", marginTop: 32, padding: "14px 0", borderTop: "1px solid #ffffff08" }}>
         <p style={{ fontSize: 12, color: "#7a756844", letterSpacing: 2, textTransform: "uppercase", margin: 0 }}>EverQuest Legends \u2022 Daybreak \u00d7 Game Jawn \u2022 Beta Apr 2026 \u2022 Launch Jul 2026</p>
-        <p style={{ fontSize: 12, color: "#7a756844", margin: "3px 0 0" }}>14 Classes \u00b7 15 Races \u00b7 560 Combos \u00b7 1 Pet Max \u00b7 All Content Soloable</p>
+        <p style={{ fontSize: 12, color: "#7a756844", margin: "3px 0 0" }}>14 Classes  15 Races  560 Combos  1 Pet Max  All Content Soloable</p>
       </div>
     </div>
   );
