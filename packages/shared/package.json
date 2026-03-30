@@ -1,0 +1,21 @@
+{
+  "name": "@eq/shared",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./*": "./*.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "sync:p99-spells": "node scripts/fetch-p99-spells.mjs",
+    "sync:p99-zones": "node scripts/fetch-p99-zones.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}
