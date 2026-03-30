@@ -70,9 +70,9 @@ const RACES = {
   HFL: { name: "Halfling", traits: "Infravision, Sneak/Hide (50). Small race.", classes_primary: ["WAR","PAL","CLR","DRU","RNG","ROG"] },
   HIE: { name: "High Elf", traits: "Infravision. Good faction everywhere.", classes_primary: ["PAL","CLR","ENC","MAG","WIZ"] },
   WEF: { name: "Wood Elf", traits: "Infravision, Forage.", classes_primary: ["WAR","BRD","DRU","RNG","ROG"] },
-  OGR: { name: "Ogre", traits: "\u2605 FRONTAL STUN IMMUNITY \u2605 Slam. Highest STR/STA.", classes_primary: ["WAR","SHD","SHM"] },
+  OGR: { name: "Ogre", traits: " FRONTAL STUN IMMUNITY  Slam. Highest STR/STA.", classes_primary: ["WAR","SHD","SHM"] },
   TRL: { name: "Troll", traits: "HP Regeneration, Slam. Evil race.", classes_primary: ["WAR","SHD","SHM"] },
-  IKS: { name: "Iksar", traits: "HP Regen, +15\u201335 AC bonus, Forage, Swim 100. Hated everywhere.", classes_primary: ["WAR","SHD","SHM","MNK","NEC"] },
+  IKS: { name: "Iksar", traits: "HP Regen, +1535 AC bonus, Forage, Swim 100. Hated everywhere.", classes_primary: ["WAR","SHD","SHM","MNK","NEC"] },
   KER: { name: "Kerran", traits: "New to EQL! Cat folk from Kerra Isle. Details TBD.", classes_primary: ["WAR","SHM","BRD","ROG"] },
   FRG: { name: "Froglok", traits: "Ultravision. New starting area in Rathe Mountains.", classes_primary: ["WAR","PAL","SHD","CLR","SHM","NEC","WIZ","ROG"] },
 };
@@ -229,7 +229,7 @@ export default function EQMulticlassGuide() {
   return (
     <div style={{ minHeight: "100vh", background: "#0a0a0f", color: "#c8c4b8", fontFamily: "'Georgia', 'Times New Roman', serif", padding: "24px 16px" }}>
       <div style={{ textAlign: "center", marginBottom: 24 }}>
-        <div style={{ fontSize: 12, letterSpacing: 6, textTransform: "uppercase", color: "#c6a44e88", marginBottom: 4 }}>EverQuest Legends \u2022 July 2026</div>
+        <div style={{ fontSize: 12, letterSpacing: 6, textTransform: "uppercase", color: "#c6a44e88", marginBottom: 4 }}>EverQuest Legends  July 2026</div>
         <h1 style={{ fontSize: 30, fontWeight: 400, margin: 0, color: "#c6a44e", textShadow: "0 0 40px rgba(198,164,78,0.15)", letterSpacing: 2 }}>Multiclass Theorycrafting</h1>
         <p style={{ fontSize: 14, color: "#7a7568", margin: "6px auto 0", fontStyle: "italic", maxWidth: 520 }}>Pick a race + 3 classes. 560 combinations. All content soloable. {COMBOS.length} builds analyzed.</p>
       </div>
@@ -269,7 +269,7 @@ export default function EQMulticlassGuide() {
 
       {view === "combos" && sel && (
         <div style={{ maxWidth: 680, margin: "0 auto" }}>
-          <button onClick={() => setSel(null)} style={{ background: "none", border: "none", color: "#c6a44e", cursor: "pointer", fontSize: 14, fontFamily: "inherit", padding: 0, marginBottom: 12, letterSpacing: 1, textTransform: "uppercase" }}>\u2190 Back</button>
+          <button onClick={() => setSel(null)} style={{ background: "none", border: "none", color: "#c6a44e", cursor: "pointer", fontSize: 14, fontFamily: "inherit", padding: 0, marginBottom: 12, letterSpacing: 1, textTransform: "uppercase" }}> Back</button>
           <div style={{ padding: 20, background: "#ffffff04", border: "1px solid #ffffff0a", borderRadius: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
               <TierBadge tier={sel.tier} />
@@ -324,7 +324,7 @@ export default function EQMulticlassGuide() {
 
       {view === "classes" && selClass && (
         <div style={{ maxWidth: 680, margin: "0 auto" }}>
-          <button onClick={() => setSelClass(null)} style={{ background: "none", border: "none", color: "#c6a44e", cursor: "pointer", fontSize: 14, fontFamily: "inherit", padding: 0, marginBottom: 12, letterSpacing: 1, textTransform: "uppercase" }}>\u2190 Back</button>
+          <button onClick={() => setSelClass(null)} style={{ background: "none", border: "none", color: "#c6a44e", cursor: "pointer", fontSize: 14, fontFamily: "inherit", padding: 0, marginBottom: 12, letterSpacing: 1, textTransform: "uppercase" }}> Back</button>
           {(() => { const c = CLASSES[selClass]; return (
             <div style={{ padding: 20, background: "#ffffff04", border: "1px solid "+c.color+"22", borderRadius: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}><div style={{ width: 12, height: 12, borderRadius: "50%", background: c.color }} /><h2 style={{ margin: 0, fontSize: 24, color: c.color, fontWeight: 400 }}>{c.name}</h2></div>
@@ -372,7 +372,7 @@ export default function EQMulticlassGuide() {
       )}
 
       <div style={{ textAlign: "center", marginTop: 32, padding: "14px 0", borderTop: "1px solid #ffffff08" }}>
-        <p style={{ fontSize: 12, color: "#7a756844", letterSpacing: 2, textTransform: "uppercase", margin: 0 }}>EverQuest Legends \u2022 Daybreak \u00d7 Game Jawn \u2022 Beta Apr 2026 \u2022 Launch Jul 2026</p>
+        <p style={{ fontSize: 12, color: "#7a756844", letterSpacing: 2, textTransform: "uppercase", margin: 0 }}>EverQuest Legends  Daybreak \u00d7 Game Jawn  Beta Apr 2026  Launch Jul 2026</p>
         <p style={{ fontSize: 12, color: "#7a756844", margin: "3px 0 0" }}>14 Classes  15 Races  560 Combos  1 Pet Max  All Content Soloable</p>
       </div>
     </div>
