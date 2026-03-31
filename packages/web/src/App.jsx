@@ -105,6 +105,161 @@ function useTheme() {
   return useContext(ThemeContext);
 }
 
+const APP_BASE_PATH = (import.meta.env.BASE_URL || "/").replace(/\/+$/, "");
+
+function slugify(s) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function getComboSlug(combo) {
+  return slugify(combo.name) || String(combo.id);
+}
+
+function withBase(path) {
+  const nextPath = path.startsWith("/") ? path : "/" + path;
+  if (!APP_BASE_PATH) return nextPath;
+  return nextPath === "/" ? APP_BASE_PATH + "/" : APP_BASE_PATH + nextPath;
+}
+
+function normalizeAppPath(pathname) {
+  const cleaned = (pathname || "/").replace(/\/+$/, "") || "/";
+  if (APP_BASE_PATH && cleaned.startsWith(APP_BASE_PATH)) {
+    const stripped = cleaned.slice(APP_BASE_PATH.length) || "/";
+    return stripped.startsWith("/") ? stripped : "/" + stripped;
+  }
+  return cleaned.startsWith("/") ? cleaned : "/" + cleaned;
+}
+
+function findComboBySlug(combos, slug) {
+  return combos.find(combo => {
+    const comboId = String(combo.id);
+    return getComboSlug(combo) === slug || comboId === slug;
+  }) || null;
+}
+
+function parseTier(search) {
+  const tier = new URLSearchParams(search).get("tier")?.toUpperCase() || null;
+  return ["S", "A", "B"].includes(tier) ? tier : null;
+}
+
+function parseRoute(pathname, search, combos) {
+  const route = {
+    view: "combos",
+    sel: null,
+    selClass: null,
+    tierF: null,
+    aaSubView: "list",
+    pendingBuildSlug: null,
+    spellClass: null,
+    spellQuery: "",
+    zoneEra: null,
+    zoneQuery: "",
+    selZone: null,
+  };
+  const path = normalizeAppPath(pathname);
+  const segments = path.split("/").filter(Boolean);
+
+  if (segments.length === 0) {
+    route.tierF = parseTier(search);
+    return route;
+  }
+
+  switch (segments[0]) {
+    case "builds": {
+      if (segments[1]) {
+        const pendingBuildSlug = decodeURIComponent(segments[1]);
+        const sel = findComboBySlug(combos, pendingBuildSlug);
+        return {
+          ...route,
+          sel,
+          pendingBuildSlug: sel ? null : pendingBuildSlug,
+        };
+      }
+      return { ...route, tierF: parseTier(search) };
+    }
+    case "builder":
+      return { ...route, view: "builder" };
+    case "classes": {
+      if (segments[1]) {
+        const selClass = decodeURIComponent(segments[1]).toUpperCase();
+        if (CLASSES[selClass]) {
+          return { ...route, view: "classes", selClass };
+        }
+      }
+      return { ...route, view: "classes" };
+    }
+    case "aa":
+      return { ...route, view: "aa", aaSubView: segments[1] === "matrix" ? "matrix" : "list" };
+    case "spells": {
+      const sp = new URLSearchParams(search);
+      const spellClass = sp.get("class")?.toUpperCase() || null;
+      return { ...route, view: "spells", spellClass: spellClass && CLASSES[spellClass] ? spellClass : null, spellQuery: sp.get("q") || "" };
+    }
+    case "zones": {
+      if (segments[1]) {
+        return { ...route, view: "zones", selZone: decodeURIComponent(segments[1]) };
+      }
+      const zp = new URLSearchParams(search);
+      return { ...route, view: "zones", zoneEra: zp.get("era") || null, zoneQuery: zp.get("q") || "" };
+    }
+    case "races":
+      return { ...route, view: "races" };
+    case "about":
+      return { ...route, view: "about" };
+    default:
+      return route;
+  }
+}
+
+function isSameRoute(a, b) {
+  return a.view === b.view
+    && a.sel?.id === b.sel?.id
+    && a.selClass === b.selClass
+    && a.tierF === b.tierF
+    && a.aaSubView === b.aaSubView
+    && a.pendingBuildSlug === b.pendingBuildSlug
+    && a.spellClass === b.spellClass
+    && a.spellQuery === b.spellQuery
+    && a.zoneEra === b.zoneEra
+    && a.zoneQuery === b.zoneQuery
+    && a.selZone === b.selZone;
+}
+
+function useRouter(combos) {
+  const getCurrentRoute = () => {
+    if (typeof window === "undefined") return parseRoute("/", "", combos);
+    return parseRoute(window.location.pathname, window.location.search, combos);
+  };
+  const [route, setRoute] = useState(getCurrentRoute);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setRoute(prev => {
+      const next = getCurrentRoute();
+      return isSameRoute(prev, next) ? prev : next;
+    });
+  }, [combos]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handlePopState = () => {
+      setRoute(parseRoute(window.location.pathname, window.location.search, combos));
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [combos]);
+
+  const navigate = (path, replace = false) => {
+    if (typeof window === "undefined") return;
+    const url = new URL(withBase(path), window.location.origin);
+    const nextRoute = parseRoute(url.pathname, url.search, combos);
+    window.history[replace ? "replaceState" : "pushState"](null, "", url.pathname + url.search);
+    setRoute(nextRoute);
+  };
+
+  return { ...route, navigate };
+}
+
 // --- Seed combos ---
 
 const SEED_COMBOS = [
@@ -1030,14 +1185,13 @@ function AAListView() {
   );
 }
 
-function AAView() {
+function AAView({ subView, onSubViewChange }) {
   const t = useTheme();
-  const [subView, setSubView] = useState("list");
   return (
     <div style={{ maxWidth: subView === "matrix" ? 1060 : 900, margin: "0 auto", transition: "max-width 0.3s" }}>
       <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 20 }}>
         {[{ id: "list", label: "List" }, { id: "matrix", label: "Overlap Matrix" }].map(tab => (
-          <button key={tab.id} onClick={() => setSubView(tab.id)}
+          <button key={tab.id} onClick={() => onSubViewChange(tab.id)}
             style={{
               padding: "6px 16px", borderRadius: 5, cursor: "pointer", fontSize: 15,
               fontFamily: "inherit", letterSpacing: 1, fontWeight: subView === tab.id ? 700 : 400,
@@ -1054,14 +1208,14 @@ function AAView() {
   );
 }
 
-function SpellsView() {
+function SpellsView({ initialClass = null, initialQuery = "", navigate }) {
   const t = useTheme();
   const isDark = useIsDark();
   const [allSpells, setAllSpells] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [filterClass, setFilterClass] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [filterClass, setFilterClass] = useState(initialClass);
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [showCount, setShowCount] = useState(50);
 
   useEffect(() => {
@@ -1095,6 +1249,24 @@ function SpellsView() {
     };
   }, []);
 
+  function buildSpellUrl(cls, q) {
+    const params = new URLSearchParams();
+    if (cls) params.set("class", cls);
+    if (q) params.set("q", q);
+    const qs = params.toString();
+    return "/spells" + (qs ? "?" + qs : "");
+  }
+
+  function updateFilterClass(cls) {
+    setFilterClass(cls);
+    navigate(buildSpellUrl(cls, searchQuery), true);
+  }
+
+  function updateSearchQuery(q) {
+    setSearchQuery(q);
+    navigate(buildSpellUrl(filterClass, q), true);
+  }
+
   const filteredSpells = useMemo(() => {
     let spells = filterClass
       ? allSpells.filter(s => s.classAccess.some(a => a.classId === filterClass))
@@ -1107,7 +1279,7 @@ function SpellsView() {
       );
     }
     return spells;
-  }, [filterClass, searchQuery]);
+  }, [allSpells, filterClass, searchQuery]);
 
   // Reset pagination when filters change
   useEffect(() => { setShowCount(50); }, [filterClass, searchQuery]);
@@ -1124,7 +1296,7 @@ function SpellsView() {
         type="text"
         placeholder="Search spells by name or description..."
         value={searchQuery}
-        onChange={e => setSearchQuery(e.target.value)}
+        onChange={e => updateSearchQuery(e.target.value)}
         style={{
           width: "100%", boxSizing: "border-box", padding: "10px 14px", fontSize: 16,
           fontFamily: "inherit", borderRadius: 8, border: "1px solid " + t.inputBorder,
@@ -1136,7 +1308,7 @@ function SpellsView() {
       />
 
       <div style={{ display: "flex", justifyContent: "center", gap: 4, marginBottom: 16, flexWrap: "wrap" }}>
-        <button onClick={() => setFilterClass(null)}
+        <button onClick={() => updateFilterClass(null)}
           style={{
             padding: "5px 14px", borderRadius: 5, cursor: "pointer", fontSize: 14,
             fontFamily: "inherit", fontWeight: !filterClass ? 700 : 400,
@@ -1146,7 +1318,7 @@ function SpellsView() {
           }}
         >All</button>
         {CLASS_IDS.map(id => (
-          <ClassBadge key={id} id={id} small selected={filterClass === id} onClick={() => setFilterClass(filterClass === id ? null : id)} />
+          <ClassBadge key={id} id={id} small selected={filterClass === id} onClick={() => updateFilterClass(filterClass === id ? null : id)} />
         ))}
       </div>
 
@@ -1211,13 +1383,152 @@ function SpellsView() {
   );
 }
 
-function ZonesView() {
+function ZoneDetailView({ zoneId, navigate }) {
+  const t = useTheme();
+  const [zone, setZone] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    fetch(`/api/data/zones/${encodeURIComponent(zoneId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (!cancelled) { setZone(data); setIsLoading(false); } })
+      .catch(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
+  }, [zoneId]);
+
+  if (isLoading) return <div style={{ textAlign: "center", color: t.textMuted, padding: 40 }}>Loading zone...</div>;
+  if (!zone) return <div style={{ textAlign: "center", color: t.red, padding: 40 }}>Zone not found</div>;
+
+  const sectionStyle = { marginBottom: 20 };
+  const sectionTitle = { fontSize: 13, color: t.textMuted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8, paddingBottom: 6, borderBottom: "1px solid " + t.cardBorder };
+  const tagStyle = { fontSize: 13, padding: "3px 9px", borderRadius: 5, background: t.tagBg, color: t.textSecondary };
+
+  return (
+    <div style={{ maxWidth: 960, margin: "0 auto" }}>
+      <button onClick={() => navigate("/zones")} style={{ background: "none", border: "none", color: t.gold, cursor: "pointer", fontSize: 15, fontFamily: "inherit", padding: 0, marginBottom: 14, letterSpacing: 1, textTransform: "uppercase" }}>&larr; Back to Zones</button>
+
+      <div style={{ padding: 24, background: t.cardBg, border: "1px solid " + t.cardBorder, borderRadius: 14, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+          <h2 style={{ margin: 0, fontSize: 26, color: t.text, fontWeight: 400 }}>{zone.name}</h2>
+          <span style={{ fontSize: 13, padding: "3px 10px", borderRadius: 5, fontWeight: 600, background: t.goldBg, color: t.gold }}>{zone.era}</span>
+        </div>
+
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 15, color: t.textMuted, marginBottom: 14 }}>
+          {zone.levelRange && <span>Levels: <span style={{ color: t.blue }}>{zone.levelRange}</span></span>}
+          {zone.zem && <span>ZEM: <span style={{ color: t.text }}>{zone.zem}</span></span>}
+          {zone.zoneSpawnTimer && <span>Respawn: <span style={{ color: t.text }}>{zone.zoneSpawnTimer}</span></span>}
+          {zone.whoName && <span>/who: <span style={{ color: t.text }}>{zone.whoName}</span></span>}
+          {zone.succorEvac && <span>Succor: <span style={{ color: t.text }}>{zone.succorEvac}</span></span>}
+        </div>
+
+        <p style={{ margin: 0, fontSize: 16, color: t.textSecondary, lineHeight: 1.7 }}>{zone.summary}</p>
+      </div>
+
+      {zone.mapImageUrl && (
+        <div style={{ ...sectionStyle, padding: 16, background: t.cardBg, border: "1px solid " + t.cardBorder, borderRadius: 14 }}>
+          <div style={sectionTitle}>Map</div>
+          <img src={zone.mapImageUrl} alt={zone.name + " map"} style={{ width: "100%", borderRadius: 8, border: "1px solid " + t.cardBorder }} />
+          {zone.mapLocations.length > 0 && (
+            <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 4 }}>
+              {zone.mapLocations.map((loc, i) => (
+                <div key={i} style={{ fontSize: 14, color: t.textSecondary, padding: "4px 0" }}>{loc}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        {zone.monsterTypes.length > 0 && (
+          <div style={{ ...sectionStyle, padding: 16, background: t.cardBg, border: "1px solid " + t.cardBorder, borderRadius: 14 }}>
+            <div style={sectionTitle}>Monsters</div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {zone.monsterTypes.map(m => <span key={m} style={tagStyle}>{m}</span>)}
+            </div>
+          </div>
+        )}
+
+        {zone.notableNpcs.length > 0 && (
+          <div style={{ ...sectionStyle, padding: 16, background: t.cardBg, border: "1px solid " + t.cardBorder, borderRadius: 14 }}>
+            <div style={sectionTitle}>Notable NPCs</div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {zone.notableNpcs.map(n => <span key={n} style={tagStyle}>{n}</span>)}
+            </div>
+          </div>
+        )}
+
+        {zone.uniqueItems.length > 0 && (
+          <div style={{ ...sectionStyle, padding: 16, background: t.cardBg, border: "1px solid " + t.cardBorder, borderRadius: 14 }}>
+            <div style={sectionTitle}>Unique Items</div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {zone.uniqueItems.map(item => <span key={item} style={tagStyle}>{item}</span>)}
+            </div>
+          </div>
+        )}
+
+        {zone.relatedQuests.length > 0 && (
+          <div style={{ ...sectionStyle, padding: 16, background: t.cardBg, border: "1px solid " + t.cardBorder, borderRadius: 14 }}>
+            <div style={sectionTitle}>Quests</div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {zone.relatedQuests.map(q => <span key={q} style={tagStyle}>{q}</span>)}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {zone.dangers && (
+        <div style={{ ...sectionStyle, padding: 16, background: t.cardBg, border: "1px solid " + t.cardBorder, borderRadius: 14 }}>
+          <div style={sectionTitle}>Dangers</div>
+          <p style={{ margin: 0, fontSize: 15, color: t.textSecondary, lineHeight: 1.7 }}>{zone.dangers}</p>
+        </div>
+      )}
+
+      {zone.benefits && (
+        <div style={{ ...sectionStyle, padding: 16, background: t.cardBg, border: "1px solid " + t.cardBorder, borderRadius: 14 }}>
+          <div style={sectionTitle}>Benefits</div>
+          <p style={{ margin: 0, fontSize: 15, color: t.textSecondary, lineHeight: 1.7 }}>{zone.benefits}</p>
+        </div>
+      )}
+
+      {zone.travelInfo && (
+        <div style={{ ...sectionStyle, padding: 16, background: t.cardBg, border: "1px solid " + t.cardBorder, borderRadius: 14 }}>
+          <div style={sectionTitle}>Getting There</div>
+          <p style={{ margin: 0, fontSize: 15, color: t.textSecondary, lineHeight: 1.7 }}>{zone.travelInfo}</p>
+        </div>
+      )}
+
+      {zone.adjacentZones.length > 0 && (
+        <div style={{ ...sectionStyle, padding: 16, background: t.cardBg, border: "1px solid " + t.cardBorder, borderRadius: 14 }}>
+          <div style={sectionTitle}>Adjacent Zones</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {zone.adjacentZones.map(adj => {
+              const adjId = adj.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+              return (
+                <span key={adj} onClick={() => navigate("/zones/" + encodeURIComponent(adjId))}
+                  style={{ ...tagStyle, cursor: "pointer", border: "1px solid " + t.goldBorder + "44", background: t.goldBg + "44" }}
+                >{adj}</span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div style={{ textAlign: "center", marginTop: 8, marginBottom: 16 }}>
+        <a href={zone.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, color: t.gold }}>View on P99 Wiki</a>
+      </div>
+    </div>
+  );
+}
+
+function ZonesView({ initialEra = null, initialQuery = "", selZone = null, navigate }) {
   const t = useTheme();
   const [allZones, setAllZones] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [eraFilter, setEraFilter] = useState(null);
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [eraFilter, setEraFilter] = useState(initialEra);
   const [showCount, setShowCount] = useState(40);
 
   useEffect(() => {
@@ -1279,11 +1590,31 @@ function ZonesView() {
     }
 
     return zones;
-  }, [eraFilter, searchQuery]);
+  }, [allZones, eraFilter, searchQuery]);
 
   useEffect(() => {
     setShowCount(40);
   }, [eraFilter, searchQuery]);
+
+  if (selZone) return <ZoneDetailView zoneId={selZone} navigate={navigate} />;
+
+  function buildZoneUrl(era, q) {
+    const params = new URLSearchParams();
+    if (era) params.set("era", era);
+    if (q) params.set("q", q);
+    const qs = params.toString();
+    return "/zones" + (qs ? "?" + qs : "");
+  }
+
+  function updateEraFilter(era) {
+    setEraFilter(era);
+    navigate(buildZoneUrl(era, searchQuery), true);
+  }
+
+  function updateZoneSearch(q) {
+    setSearchQuery(q);
+    navigate(buildZoneUrl(eraFilter, q), true);
+  }
 
   return (
     <div style={{ maxWidth: 960, margin: "0 auto" }}>
@@ -1297,7 +1628,7 @@ function ZonesView() {
         type="text"
         placeholder="Search zones, monsters, NPCs, or adjacent zones..."
         value={searchQuery}
-        onChange={e => setSearchQuery(e.target.value)}
+        onChange={e => updateZoneSearch(e.target.value)}
         style={{
           width: "100%", boxSizing: "border-box", padding: "10px 14px", fontSize: 16,
           fontFamily: "inherit", borderRadius: 8, border: "1px solid " + t.inputBorder,
@@ -1306,7 +1637,7 @@ function ZonesView() {
       />
 
       <div style={{ display: "flex", justifyContent: "center", gap: 4, marginBottom: 16, flexWrap: "wrap" }}>
-        <button onClick={() => setEraFilter(null)}
+        <button onClick={() => updateEraFilter(null)}
           style={{
             padding: "5px 14px", borderRadius: 5, cursor: "pointer", fontSize: 14,
             fontFamily: "inherit", fontWeight: !eraFilter ? 700 : 400,
@@ -1316,7 +1647,7 @@ function ZonesView() {
           }}
         >All Eras</button>
         {eras.map(era => (
-          <button key={era} onClick={() => setEraFilter(eraFilter === era ? null : era)}
+          <button key={era} onClick={() => updateEraFilter(eraFilter === era ? null : era)}
             style={{
               padding: "5px 14px", borderRadius: 5, cursor: "pointer", fontSize: 14,
               fontFamily: "inherit", fontWeight: eraFilter === era ? 700 : 400,
@@ -1333,7 +1664,11 @@ function ZonesView() {
       </div>
 
       {filteredZones.slice(0, showCount).map(zone => (
-        <div key={zone.id} style={{ padding: "14px 16px", marginBottom: 6, borderRadius: 10, background: t.cardBg, border: "1px solid " + t.cardBorder }}>
+        <div key={zone.id} onClick={() => navigate("/zones/" + encodeURIComponent(zone.id))}
+          style={{ padding: "14px 16px", marginBottom: 6, borderRadius: 10, background: t.cardBg, border: "1px solid " + t.cardBorder, cursor: "pointer", transition: "all 0.15s" }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = t.goldBorder}
+          onMouseLeave={e => e.currentTarget.style.borderColor = t.cardBorder}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
             <span style={{ fontSize: 18, fontWeight: 600, color: t.text }}>{zone.name}</span>
             <span style={{ fontSize: 12, padding: "2px 7px", borderRadius: 4, fontWeight: 600, background: t.goldBg, color: t.gold }}>{zone.era}</span>
@@ -1349,42 +1684,21 @@ function ZonesView() {
           </div>
 
           <p style={{ margin: "0 0 8px", fontSize: 15, color: t.textSecondary, lineHeight: 1.6 }}>
-            {zone.summary}
+            {zone.summary.length > 200 ? zone.summary.slice(0, 200) + "..." : zone.summary}
           </p>
 
           {zone.monsterTypes.length > 0 && (
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 12, color: t.textMuted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Monsters</div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                {zone.monsterTypes.slice(0, 10).map(monster => (
+                {zone.monsterTypes.slice(0, 8).map(monster => (
                   <span key={monster} style={{ fontSize: 12, padding: "2px 7px", borderRadius: 4, background: t.tagBg, color: t.textMuted }}>{monster}</span>
                 ))}
-                {zone.monsterTypes.length > 10 && (
-                  <span style={{ fontSize: 12, color: t.textMuted }}>+{zone.monsterTypes.length - 10} more</span>
+                {zone.monsterTypes.length > 8 && (
+                  <span style={{ fontSize: 12, color: t.textMuted }}>+{zone.monsterTypes.length - 8} more</span>
                 )}
               </div>
             </div>
           )}
-
-          <div style={{ display: "grid", gap: 6 }}>
-            {zone.adjacentZones.length > 0 && (
-              <div style={{ fontSize: 14, color: t.textSecondary }}>
-                <span style={{ color: t.textMuted }}>Adjacent:</span> {zone.adjacentZones.join(", ")}
-              </div>
-            )}
-            {zone.notableNpcs.length > 0 && (
-              <div style={{ fontSize: 14, color: t.textSecondary }}>
-                <span style={{ color: t.textMuted }}>Notable NPCs:</span> {zone.notableNpcs.slice(0, 8).join(", ")}
-                {zone.notableNpcs.length > 8 ? ` +${zone.notableNpcs.length - 8} more` : ""}
-              </div>
-            )}
-            {zone.relatedQuests.length > 0 && (
-              <div style={{ fontSize: 14, color: t.textSecondary }}>
-                <span style={{ color: t.textMuted }}>Quests:</span> {zone.relatedQuests.slice(0, 6).join(", ")}
-                {zone.relatedQuests.length > 6 ? ` +${zone.relatedQuests.length - 6} more` : ""}
-              </div>
-            )}
-          </div>
         </div>
       ))}
 
@@ -1466,11 +1780,9 @@ export default function EQMulticlassGuide() {
   const [isDark, setIsDark] = useState(() => {
     try { return localStorage.getItem("eq-theme") !== "light"; } catch { return true; }
   });
-  const [view, setView] = useState("combos");
-  const [sel, setSel] = useState(null);
-  const [selClass, setSelClass] = useState(null);
-  const [tierF, setTierF] = useState(null);
   const [combos, setCombos] = useState(SEED_COMBOS);
+  const [isLoadingCombos, setIsLoadingCombos] = useState(true);
+  const { view, sel, selClass, tierF, aaSubView, pendingBuildSlug, spellClass, spellQuery, zoneEra, zoneQuery, selZone, navigate } = useRouter(combos);
 
   const t = isDark ? themes.dark : themes.light;
 
@@ -1495,10 +1807,21 @@ export default function EQMulticlassGuide() {
           })));
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setIsLoadingCombos(false));
   }, []);
 
   const filtered = tierF ? combos.filter(c => c.tier === tierF) : combos;
+  const navPathByView = {
+    about: "/about",
+    builder: "/builder",
+    combos: "/builds",
+    classes: "/classes",
+    races: "/races",
+    aa: "/aa",
+    spells: "/spells",
+    zones: "/zones",
+  };
 
   return (
     <ThemeContext.Provider value={t}>
@@ -1528,7 +1851,7 @@ export default function EQMulticlassGuide() {
             { id: "spells", label: "Spells" },
             { id: "zones", label: "Zones" },
           ].map(tab => (
-            <button key={tab.id} onClick={() => { setView(tab.id); setSel(null); setSelClass(null); setTierF(null); }}
+            <button key={tab.id} onClick={() => navigate(navPathByView[tab.id])}
               style={{
                 padding: "10px 20px", border: "1px solid",
                 borderColor: view === tab.id ? t.goldBorder : t.cardBorder,
@@ -1546,11 +1869,11 @@ export default function EQMulticlassGuide() {
         {view === "builder" && <ComboBuilder />}
 
         {/* Builds List */}
-        {view === "combos" && !sel && (
+        {view === "combos" && !sel && !pendingBuildSlug && (
           <div style={{ maxWidth: 900, margin: "0 auto" }}>
             <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 18 }}>
               {[null, "S", "A", "B"].map(tier => (
-                <button key={tier || "all"} onClick={() => setTierF(tier)}
+                <button key={tier || "all"} onClick={() => navigate(tier ? "/builds?tier=" + tier : "/builds", true)}
                   style={{
                     padding: "6px 16px", borderRadius: 5, cursor: "pointer", fontSize: 15,
                     fontFamily: "inherit", letterSpacing: 1, fontWeight: tierF === tier ? 700 : 400,
@@ -1562,7 +1885,7 @@ export default function EQMulticlassGuide() {
               ))}
             </div>
             {filtered.map(c => (
-              <div key={c.id} onClick={() => setSel(c)}
+              <div key={c.id} onClick={() => navigate("/builds/" + encodeURIComponent(getComboSlug(c)))}
                 style={{
                   padding: "14px 18px", marginBottom: 6, borderRadius: 10,
                   background: t.cardBg, border: "1px solid " + t.cardBorder,
@@ -1586,10 +1909,32 @@ export default function EQMulticlassGuide() {
           </div>
         )}
 
+        {view === "combos" && pendingBuildSlug && !sel && (
+          <div style={{ maxWidth: 900, margin: "0 auto" }}>
+            <div style={{ padding: 24, background: t.cardBg, border: "1px solid " + t.cardBorder, borderRadius: 14, textAlign: "center" }}>
+              <div style={{ fontSize: 18, color: t.text, marginBottom: 8 }}>
+                {isLoadingCombos ? "Loading build..." : "Build not found"}
+              </div>
+              <div style={{ fontSize: 15, color: t.textMuted, marginBottom: 16 }}>
+                {isLoadingCombos ? `Resolving "${pendingBuildSlug}" from the latest build data.` : `No build matched "${pendingBuildSlug}".`}
+              </div>
+              {!isLoadingCombos && (
+                <button onClick={() => navigate("/builds")}
+                  style={{
+                    padding: "10px 20px", borderRadius: 8, cursor: "pointer", fontSize: 15,
+                    fontFamily: "inherit", letterSpacing: 1, textTransform: "uppercase",
+                    background: t.goldBg, color: t.gold, border: "1px solid " + t.goldBorder,
+                  }}
+                >Back to Builds</button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Build Detail */}
         {view === "combos" && sel && (
           <div style={{ maxWidth: 900, margin: "0 auto" }}>
-            <button onClick={() => setSel(null)} style={{ background: "none", border: "none", color: t.gold, cursor: "pointer", fontSize: 15, fontFamily: "inherit", padding: 0, marginBottom: 14, letterSpacing: 1, textTransform: "uppercase" }}>&larr; Back</button>
+            <button onClick={() => navigate("/builds")} style={{ background: "none", border: "none", color: t.gold, cursor: "pointer", fontSize: 15, fontFamily: "inherit", padding: 0, marginBottom: 14, letterSpacing: 1, textTransform: "uppercase" }}>&larr; Back</button>
             <div style={{ padding: 24, background: t.cardBg, border: "1px solid " + t.cardBorder, borderRadius: 14 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
                 <TierBadge tier={sel.tier} />
@@ -1645,7 +1990,7 @@ export default function EQMulticlassGuide() {
                 {Object.entries(CLASSES).filter(([, c]) => c.archetype === arch).map(([id, c]) => {
                   const cc = getClassColor(id, isDark);
                   return (
-                  <div key={id} onClick={() => setSelClass(id)}
+                  <div key={id} onClick={() => navigate("/classes/" + encodeURIComponent(id))}
                     style={{
                       padding: "12px 16px", marginBottom: 4, borderRadius: 10,
                       background: t.cardBg, border: "1px solid " + t.cardBorder,
@@ -1671,7 +2016,7 @@ export default function EQMulticlassGuide() {
         {/* Class Detail */}
         {view === "classes" && selClass && (
           <div style={{ maxWidth: 900, margin: "0 auto" }}>
-            <button onClick={() => setSelClass(null)} style={{ background: "none", border: "none", color: t.gold, cursor: "pointer", fontSize: 15, fontFamily: "inherit", padding: 0, marginBottom: 14, letterSpacing: 1, textTransform: "uppercase" }}>&larr; Back</button>
+            <button onClick={() => navigate("/classes")} style={{ background: "none", border: "none", color: t.gold, cursor: "pointer", fontSize: 15, fontFamily: "inherit", padding: 0, marginBottom: 14, letterSpacing: 1, textTransform: "uppercase" }}>&larr; Back</button>
             {(() => { const c = CLASSES[selClass]; if (!c) return null; const cc = getClassColor(selClass, isDark); return (
               <div style={{ padding: 24, background: t.cardBg, border: "1px solid " + cc + "22", borderRadius: 14 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
@@ -1723,7 +2068,7 @@ export default function EQMulticlassGuide() {
 
                 <SectionHeader color={t.textMuted}>Appears in Builds</SectionHeader>
                 {combos.filter(co => co.classes.includes(selClass)).map(co => (
-                  <div key={co.id} onClick={() => { setView("combos"); setSel(co); setSelClass(null); }}
+                  <div key={co.id} onClick={() => navigate("/builds/" + encodeURIComponent(getComboSlug(co)))}
                     style={{ fontSize: 16, color: t.gold, cursor: "pointer", padding: "6px 0", borderBottom: "1px solid " + t.cardBorder }}
                   >
                     <TierBadge tier={co.tier} />
@@ -1737,13 +2082,13 @@ export default function EQMulticlassGuide() {
         )}
 
         {/* AAs */}
-        {view === "aa" && <AAView />}
+        {view === "aa" && <AAView subView={aaSubView} onSubViewChange={(subView) => navigate(subView === "matrix" ? "/aa/matrix" : "/aa")} />}
 
         {/* Spells */}
-        {view === "spells" && <SpellsView />}
+        {view === "spells" && <SpellsView initialClass={spellClass} initialQuery={spellQuery} navigate={navigate} />}
 
         {/* Zones */}
-        {view === "zones" && <ZonesView />}
+        {view === "zones" && <ZonesView initialEra={zoneEra} initialQuery={zoneQuery} selZone={selZone} navigate={navigate} />}
 
         {/* Races */}
         {view === "races" && (

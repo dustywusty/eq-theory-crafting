@@ -51,14 +51,16 @@ function parseTemplateFields(block) {
     .replace(/\}\}\s*$/u, "");
 
   const fields = {};
-  for (const line of body.split(/\r?\n/u)) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("|")) continue;
+  // Split on | that precedes a key= pattern (handles both single-line and multi-line templates)
+  const entries = body.split(/\|(?=[a-zA-Z_]+=)/u);
+  for (const entry of entries) {
+    const trimmed = entry.trim();
+    if (!trimmed) continue;
     const separatorIndex = trimmed.indexOf("=");
     if (separatorIndex === -1) continue;
-    const key = trimmed.slice(1, separatorIndex).trim();
+    const key = trimmed.slice(0, separatorIndex).trim();
     const value = trimmed.slice(separatorIndex + 1).trim();
-    fields[key] = cleanWikiText(value);
+    if (key) fields[key] = cleanWikiText(value);
   }
   return fields;
 }

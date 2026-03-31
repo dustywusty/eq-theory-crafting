@@ -136,6 +136,11 @@ export interface EQZone {
   succorEvac: string | null;
   zem: string | null;
   sourceUrl: string;
+  mapImageUrl: string | null;
+  mapLocations: string[];
+  dangers: string;
+  benefits: string;
+  travelInfo: string;
 }
 
 export interface EvaluationResult {
